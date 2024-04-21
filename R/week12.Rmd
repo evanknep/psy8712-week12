@@ -1,0 +1,27 @@
+---
+title: "week12"
+author: "Evan Knep"
+date: "2024-04-21"
+output: html_document
+---
+
+```{r}
+# Script Settings And Resources
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+library(tidyverse)
+library(RedditExtractoR)
+library(stringr)
+```
+
+
+```{r}
+# Data Import and Cleaning
+# urls <- find_thread_urls(subreddit = "IOPsychology", sort_by = "top", period = "year")
+# reddit <- get_thread_content(urls$url)
+# week12_tbl <- as_tibble(reddit$threads) %>%
+#   select(c('title', 'upvotes'))
+
+# write_csv(week12_tbl, "../data/reddit_IO_data.csv")
+
+week12_tbl <- read_csv("../data/reddit_IO_data.csv")
+```
