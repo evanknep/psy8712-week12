@@ -10,18 +10,58 @@ output: html_document
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 library(tidyverse)
 library(RedditExtractoR)
-library(stringr)
-```
+library(tm)
+library(qdap)
 
+```
+# Data Import and Cleaning
 
 ```{r}
-# Data Import and Cleaning
 # urls <- find_thread_urls(subreddit = "IOPsychology", sort_by = "top", period = "year")
 # reddit <- get_thread_content(urls$url)
 # week12_tbl <- as_tibble(reddit$threads) %>%
 #   select(c('title', 'upvotes'))
-
 # write_csv(week12_tbl, "../data/reddit_IO_data.csv")
-
 week12_tbl <- read_csv("../data/reddit_IO_data.csv")
+week12_tbl$title
+io_corpus_original <- VCorpus(VectorSource(week12_tbl$title))
+
+  
 ```
+
+
+```{r}
+io_corpus <- io_corpus_original %>%
+  tm_map(content_transformer(str_to_lower)) %>% 
+  tm_map(removeWords, c("io", "psychology", "psych", "i/o")) %>%   
+  tm_map(content_transformer(replace_abbreviation)) %>% 
+  tm_map(content_transformer(replace_abbreviation)) %>%
+  tm_map(removeNumbers) %>%
+  tm_map(removePunctuation) %>%
+  tm_map(removeWords, stopwords("en")) %>%
+  tm_map(stripWhitespace)
+  
+  
+
+```
+
+My corpus processing steps went as follows:
+1. str_to_lower. Doing this first because then when I filter out words I don't need to worry about capitalization of each word being treated differently
+2. removeWords. Removing all words related to IO psychology. Started with the basics: io, psychology, psych (common abbreviation), and then added i/o when I saw it pop up in my scan of the corpus
+3. replace_abbreviations. This and the following contraction replacement just seemed like good practice in any NLP. Maybe it'd be better practice to do this before removing words but I figured it didn't matter since there are no obvious abbreviations for IO psychology that I hadn't already selected for.
+4. replace_contractions. Same justification as above.
+5-9. removing numbers, punctuation, and basic english "stopwords" that are not meaningful for our analyses. Stripping whitespace at the end of sentences because that will still be read in otherwise
+
+# Analysis
+
+```{r}
+
+compare_them <- function() {
+  casenum <- sample(1:40, 1)
+  print(io_corpus[[casenum]]$content)
+  print(io_corpus_original[[casenum]]$content)
+}
+
+
+```
+
