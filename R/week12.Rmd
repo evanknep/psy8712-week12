@@ -15,6 +15,7 @@ library(qdap)
 library(SnowballC)
 library(RWeka)
 library(ldatuning)
+library(wordcloud)
 ```
 
 # Data Import and Cleaning
@@ -56,24 +57,6 @@ io_corpus <- io_corpus_original %>%
 5-8. removing numbers, punctuation, and basic english "stopwords" that are not meaningful for our analyses. Stripping whitespace at the end of sentences because that will still be read in otherwise
 9. stemming document. Reducing words to there "stems" so that we don't need to worry about things like pluralization or varying word endings skewing our analyses.
 
-```{r n-gram_DTM}
-#Used RWeka to get uni and bigram tokens
-myTokenizer <- function(x) {NGramTokenizer(x, Weka_control(min=1, max=2))} 
-io_dtm <- DocumentTermMatrix(io_corpus,
-                             control = list(tokenize = myTokenizer))
-
-# io_dtm %>% as.matrix %>% as.tibble %>% View
-
-io_slim_dtm <- removeSparseTerms(io_dtm, .9965)
-
-io_slim_dtm %>% as.matrix %>% as.tibble %>% View
-
-```
-
-
-```{r dirichlet allocation}
-
-```
 
 # Analysis
 
@@ -87,4 +70,42 @@ compare_them <- function() {
 
 
 ```
+
+
+```{r n-gram_DTM}
+#Used RWeka to get uni and bigram tokens
+myTokenizer <- function(x) {NGramTokenizer(x, Weka_control(min=1, max=2))} 
+io_dtm <- DocumentTermMatrix(io_corpus,
+                             control = list(tokenize = myTokenizer))
+
+# io_dtm %>% as.matrix %>% as.tibble %>% View
+
+io_slim_dtm <- removeSparseTerms(io_dtm, .9965)
+tokenCounts <- apply(io_slim_dtm, 1, sum) 
+io_slim_dtm <- io_slim_dtm[tokenCounts >0,] #ended up needing this after all, because rows of zeros were throwing errors in my derichlet allocation
+
+# io_slim_dtm %>% as.matrix %>% as.tibble %>% View
+
+```
+
+
+```{r dirichlet allocation}
+topics <- FindTopicsNumber(
+  io_slim_dtm,
+  topics = seq(2,10,1),
+  metrics = c(
+    "Griffiths2004",
+    "CaoJuan2009",
+    "Arun2010",
+    "Deveaud2014"),
+  verbose = T
+  )
+
+FindTopicsNumber_plot(topics) #Early plotting of our LDA makes it seem likely that there are 4-5 distinct topics
+
+```
+
+
+
+
 
