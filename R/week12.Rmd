@@ -109,7 +109,8 @@ lda_results <- LDA(io_slim_dtm, 4)
 lda_betas <- tidy(lda_results, matrix = "beta") %>%
   group_by(topic) %>%
   top_n(10, beta) %>%
-  arrange(topic, -beta)
+  arrange(topic, -beta) %>%
+  View
 
 lda_gammas <- tidy(lda_results, matrix = "gamma")
 
@@ -124,6 +125,8 @@ lda_gammas <- lda_gammas %>%
 
 ```
 
+
+
 ```{r}
 tidy_og_corpus <- tidy(io_corpus_original) %>%
   select(id, text) %>%
@@ -136,6 +139,44 @@ topics_tbl <- left_join(lda_gammas, tidy_og_corpus, by = "document") %>%
   rename(doc_id = document, original = text, probability = gamma)
   
 ```
+
+Looking at beta matrix alone we can get an idea of what our 4 topics are. Topic 1 seems to be related to career help in the form of getting a job, hence the interview questions portion. Topic 2 seems to be related to questions about best practice within the field. Topic 3 seems more related to graduate school/programs in IO psych. Topic 4 is a bit harder to pin down, but my interpretation would be that it captures the more general discussion posts. The subreddit seems to have a bi-weekly discussion for instance, and that is in topic 4. 
+
+When looking at the topics matched up with the original post titles I would definitely say it feels a bit muddier,but that makes a good deal of sense considering that the probability of each post being in assigned topic is about 25%. There seems to be a great deal of overlap between topics, especially with many relating to questions about grad school and work, but the general framing of the questions does appear to differ somewhat (in my totally unbiased opinion).
+
+```{r word cloud}
+
+io_tbl <- io_slim_dtm %>% 
+  as.matrix() %>%
+  as.tibble()
+wordcloud(
+  words = names(io_tbl),
+  freq = colSums(io_tbl),
+  colors = brewer.pal(9,"RdPu")
+)
+
+
+```
+
+I was a bit worried that the stemmed words would make the wordcloud look strange, but I think it actually turned out just fine
+
+
+```{r final_tbl}
+tidy_og_corpus <- tidy(io_corpus_original) %>%
+  select(id, text) %>%
+  rename(document = id) %>%
+  mutate(across(document, as.integer))
+
+week12_tbl <- week12_tbl %>%
+  rename(original = title)
+
+final_tbl <- left_join(topics_tbl, week12_tbl, by = "original")
+
+```
+
+
+
+
 
 
 
