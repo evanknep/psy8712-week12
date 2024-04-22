@@ -18,6 +18,10 @@ library(ldatuning)
 library(wordcloud)
 library(topicmodels)
 library(tidytext)
+library(psych)
+library(caret)
+library(parallel)
+library(doParallel)
 ```
 
 # Data Import and Cleaning
@@ -86,7 +90,7 @@ io_slim_dtm <- removeSparseTerms(io_dtm, .9965)
 tokenCounts <- apply(io_slim_dtm, 1, sum) 
 io_slim_dtm <- io_slim_dtm[tokenCounts >0,] #ended up needing this after all, because rows of zeros were throwing errors in my derichlet allocation
 
-io_slim_dtm %>% as.matrix %>% as.tibble %>% View
+# io_slim_dtm %>% as.matrix %>% as.tibble %>% View
 
 ```
 
@@ -109,8 +113,7 @@ lda_results <- LDA(io_slim_dtm, 4)
 lda_betas <- tidy(lda_results, matrix = "beta") %>%
   group_by(topic) %>%
   top_n(10, beta) %>%
-  arrange(topic, -beta) %>%
-  View
+  arrange(topic, -beta)
 
 lda_gammas <- tidy(lda_results, matrix = "gamma")
 
@@ -175,10 +178,64 @@ final_tbl <- left_join(topics_tbl, week12_tbl, by = "original")
 ```
 
 
+```{r dummy coding}
+dummies <- dummy.code(final_tbl$topic)
+dummies_tbl <- as.tibble(dummies)
+names(dummies_tbl) <- c("topic1", "topic2", "topic3", "topic4")
+final_tbl_dummied <- final_tbl %>%
+  bind_cols(dummies_tbl)
+
+```
+
+```{r lm}
+lm_1 <- lm (upvotes ~ topic1 + topic2 + topic3 + topic4, data = final_tbl_dummied)
+summary(lm_1)
+
+```
+Interestingly, our linear regression suggests that only topic1 is a significant predictor of upvote, with a significant negative correlation (p = 2.16e-07) between topic 1 and post upvotes. If our interpretation of the topics is accurate, then this would indicate that the posts that are asking about jobs or interview advice are less popular, which would make sense if the sub is meant to be dedicated to more of a best practices or state of the field discussion.
+
+
+```{r knn}
+
+set.seed(500)
+holdout_indices <- createDataPartition(final_tbl_dummied$upvotes,
+                                       p = .25,
+                                       list = T)$Resample1
+
+training_tbl <- final_tbl_dummied[holdout_indices,]
+test_tbl <- final_tbl_dummied[-holdout_indices,]
+
+training_folds <- createFolds(training_tbl$upvotes)
+
+local_cluster <- makeCluster(7)
+registerDoParallel(local_cluster)
+
+xgb_upvotes <- train(
+  upvotes ~ topic,
+  training_tbl,
+  method = "xgbLinear",
+  na.action = na.pass,
+  preProcess = c("center","scale", "nzv", "medianImpute"),
+  trControl = trainControl(method = "cv", 
+                           number = 10, 
+                           verboseIter = TRUE, 
+                           indexOut = training_folds))
 
 
 
+cv_xgb <- max(xgb_upvotes$results$Rsquared)
+holdout_xgb <- cor(
+  predict(xgb_upvotes, test_tbl, na.action = na.pass),
+  test_tbl$upvotes
+) ^ 2
 
+cv_xgb
+holdout_xgb
 
+stopCluster(local_cluster)
+registerDoSEQ()
 
+```
+
+When attempting to use xgboost to examine the relationship between topic and upvotes, our results suggest that we cannot predict upvotes based on topic. Our cv value is `r cv_xgb` and holdout prediction is `r holdout_xgb`.
 
