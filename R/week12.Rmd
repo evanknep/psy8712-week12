@@ -12,8 +12,11 @@ library(tidyverse)
 library(RedditExtractoR)
 library(tm)
 library(qdap)
-
+library(SnowballC)
+library(RWeka)
+library(ldatuning)
 ```
+
 # Data Import and Cleaning
 
 ```{r}
@@ -30,27 +33,47 @@ io_corpus_original <- VCorpus(VectorSource(week12_tbl$title))
 ```
 
 
-```{r}
+```{r preprocessing}
 io_corpus <- io_corpus_original %>%
   tm_map(content_transformer(str_to_lower)) %>% 
   tm_map(removeWords, c("io", "psychology", "psych", "i/o")) %>%   
   tm_map(content_transformer(replace_abbreviation)) %>% 
-  tm_map(content_transformer(replace_abbreviation)) %>%
+  tm_map(content_transformer(replace_contraction)) %>%
   tm_map(removeNumbers) %>%
   tm_map(removePunctuation) %>%
   tm_map(removeWords, stopwords("en")) %>%
-  tm_map(stripWhitespace)
+  tm_map(stripWhitespace) %>%
+  tm_map(stemDocument, language = "english")
   
   
-
 ```
 
-My corpus processing steps went as follows:
+*My corpus pre-processing steps went as follows:*
 1. str_to_lower. Doing this first because then when I filter out words I don't need to worry about capitalization of each word being treated differently
 2. removeWords. Removing all words related to IO psychology. Started with the basics: io, psychology, psych (common abbreviation), and then added i/o when I saw it pop up in my scan of the corpus
 3. replace_abbreviations. This and the following contraction replacement just seemed like good practice in any NLP. Maybe it'd be better practice to do this before removing words but I figured it didn't matter since there are no obvious abbreviations for IO psychology that I hadn't already selected for.
 4. replace_contractions. Same justification as above.
-5-9. removing numbers, punctuation, and basic english "stopwords" that are not meaningful for our analyses. Stripping whitespace at the end of sentences because that will still be read in otherwise
+5-8. removing numbers, punctuation, and basic english "stopwords" that are not meaningful for our analyses. Stripping whitespace at the end of sentences because that will still be read in otherwise
+9. stemming document. Reducing words to there "stems" so that we don't need to worry about things like pluralization or varying word endings skewing our analyses.
+
+```{r n-gram_DTM}
+#Used RWeka to get uni and bigram tokens
+myTokenizer <- function(x) {NGramTokenizer(x, Weka_control(min=1, max=2))} 
+io_dtm <- DocumentTermMatrix(io_corpus,
+                             control = list(tokenize = myTokenizer))
+
+# io_dtm %>% as.matrix %>% as.tibble %>% View
+
+io_slim_dtm <- removeSparseTerms(io_dtm, .9965)
+
+io_slim_dtm %>% as.matrix %>% as.tibble %>% View
+
+```
+
+
+```{r dirichlet allocation}
+
+```
 
 # Analysis
 
